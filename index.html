@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IT기기 적립금 계산기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --bg-primary: #ffffff;
@@ -18,6 +19,8 @@
     --border-secondary: rgba(0,0,0,0.18);
     --radius-md: 8px;
     --radius-lg: 12px;
+    --green: #1a7f37;
+    --red: #c0392b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -52,7 +55,7 @@
   h1 {
     font-size: 20px;
     font-weight: 500;
-    margin: 0 0 1.5rem;
+    margin: 0 0 1rem;
   }
   input, button {
     font-family: inherit;
@@ -68,12 +71,32 @@
     outline: none;
     box-shadow: 0 0 0 2px var(--bg-info);
   }
-  button {
-    cursor: pointer;
-    background: var(--bg-primary);
-  }
+  button { cursor: pointer; background: var(--bg-primary); }
   button:hover { background: var(--bg-secondary); }
   button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .sync-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    margin-bottom: 1.25rem;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .sync-status { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary); flex-shrink: 0; }
+  .dot.synced { background: var(--green); }
+  .dot.error { background: var(--red); }
+  .dot.syncing { background: #d9a300; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .sync-bar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .sheet-link { font-size: 12px; color: var(--text-info); text-decoration: none; }
+  .sheet-link:hover { text-decoration: underline; }
+
   .top-row {
     display: flex;
     align-items: center;
@@ -81,11 +104,7 @@
     margin: 0 0 1.5rem;
     flex-wrap: wrap;
   }
-  .top-row label {
-    font-size: 14px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
+  .top-row label { font-size: 14px; color: var(--text-secondary); white-space: nowrap; }
   #fund { width: 120px; }
   #addBtn { margin-left: auto; }
   #rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
@@ -100,11 +119,7 @@
     gap: 12px;
     margin-bottom: 1.5rem;
   }
-  .stat-card {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-  }
+  .stat-card { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; }
   .stat-card.info { background: var(--bg-info); }
   .stat-label { font-size: 13px; color: var(--text-secondary); margin: 0 0 4px; }
   .stat-card.info .stat-label { color: var(--text-info); }
@@ -112,12 +127,7 @@
   .stat-card.info .stat-value { color: var(--text-info); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   th, td { padding: 6px 4px; }
-  th {
-    text-align: right;
-    color: var(--text-secondary);
-    font-weight: 500;
-    border-bottom: 0.5px solid var(--border-tertiary);
-  }
+  th { text-align: right; color: var(--text-secondary); font-weight: 500; border-bottom: 0.5px solid var(--border-tertiary); }
   th:first-child, td:first-child { text-align: left; }
   td { border-bottom: 0.5px solid var(--border-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .muted { color: var(--text-secondary); }
@@ -128,6 +138,17 @@
 <body>
 <div class="wrap">
   <h1>IT기기 적립금 계산기</h1>
+
+  <div class="sync-bar">
+    <div class="sync-status">
+      <span class="dot" id="syncDot"></span>
+      <span id="syncText">Google 계정 연결 안 됨 (이 브라우저에만 저장 중)</span>
+    </div>
+    <div class="right">
+      <a href="#" id="sheetLink" class="sheet-link" target="_blank" rel="noopener" style="display:none;">시트 열기 ↗</a>
+      <button id="authBtn">Google 계정으로 연결</button>
+    </div>
+  </div>
 
   <div class="top-row">
     <label for="fund">현재 적립금(만원)</label>
@@ -158,22 +179,22 @@
     </colgroup>
     <thead>
       <tr>
-        <th>기기</th>
-        <th>예산</th>
-        <th>남은개월</th>
-        <th>적립금 배정</th>
-        <th>부족분</th>
-        <th>월 저축액</th>
+        <th>기기</th><th>예산</th><th>남은개월</th><th>적립금 배정</th><th>부족분</th><th>월 저축액</th>
       </tr>
     </thead>
     <tbody id="resultBody"></tbody>
   </table>
 
-  <p class="note">만기(남은 개월)가 빠른 기기부터 적립금을 우선 배정합니다. 입력값은 이 브라우저에 자동 저장됩니다.</p>
+  <p class="note">만기(남은 개월)가 빠른 기기부터 적립금을 우선 배정합니다. Google 계정 연결 시 자동으로 내 드라이브의 전용 시트에 저장되어 어느 기기에서든 같은 데이터를 볼 수 있습니다. 연결하지 않으면 이 브라우저에만 저장됩니다.</p>
 </div>
 
 <script>
-const STORAGE_KEY = 'it-savings-calculator-v1';
+/* ===== 설정 ===== */
+const CLIENT_ID = '985691104006-k6lu0gfi5osnj3b4b6a3og3akruk9h8q.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
+const SHEET_NAME = '[IT기기 적립금 계산기 전용] 데이터';
+const LOCAL_KEY = 'it-savings-calculator-v1';
+const SHEET_ID_KEY = 'it-savings-calculator-sheet-id';
 
 const defaultDevices = [
   { name: "휴대폰", budget: 240, months: 24 },
@@ -184,9 +205,25 @@ const defaultDevices = [
   { name: "갤럭시 탭", budget: 90, months: 14 }
 ];
 
-function loadState() {
+let devices = [];
+let accessToken = null;
+let sheetId = localStorage.getItem(SHEET_ID_KEY) || null;
+let tokenClient = null;
+let saveTimer = null;
+let isApplyingRemote = false;
+
+const rowsEl = document.getElementById('rows');
+const fundEl = document.getElementById('fund');
+const addBtn = document.getElementById('addBtn');
+const authBtn = document.getElementById('authBtn');
+const syncDot = document.getElementById('syncDot');
+const syncText = document.getElementById('syncText');
+const sheetLink = document.getElementById('sheetLink');
+
+/* ===== 로컬 저장 (백업/오프라인용) ===== */
+function loadLocal() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.devices)) return parsed;
@@ -194,20 +231,23 @@ function loadState() {
   } catch (e) {}
   return { fund: 100, devices: defaultDevices };
 }
-
-function saveState() {
+function saveLocal() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ fund: +fundEl.value || 0, devices }));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({ fund: +fundEl.value || 0, devices }));
   } catch (e) {}
 }
 
-const state = loadState();
-let devices = state.devices;
+/* ===== 초기 로드 ===== */
+const initial = loadLocal();
+devices = initial.devices;
+fundEl.value = initial.fund;
 
-const rowsEl = document.getElementById('rows');
-const fundEl = document.getElementById('fund');
-const addBtn = document.getElementById('addBtn');
-fundEl.value = state.fund;
+/* ===== 렌더링 ===== */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 function renderRows() {
   rowsEl.innerHTML = '';
@@ -231,7 +271,7 @@ function renderRows() {
       const f = e.target.dataset.f;
       devices[i][f] = f === 'name' ? e.target.value : (+e.target.value || 0);
       calculate();
-      saveState();
+      onDataChanged();
     });
   });
   rowsEl.querySelectorAll('button[data-del]').forEach(btn => {
@@ -240,15 +280,9 @@ function renderRows() {
       devices.splice(i, 1);
       renderRows();
       calculate();
-      saveState();
+      onDataChanged();
     });
   });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 function calculate() {
@@ -263,7 +297,6 @@ function calculate() {
     const monthly = Math.round((shortfall / d.months) * 10) / 10;
     return { ...d, allocated: Math.round(allocated * 10) / 10, shortfall, monthly };
   });
-
   results.sort((a, b) => a.idx - b.idx);
 
   const totalBudget = Math.round(devices.reduce((s, d) => s + d.budget, 0) * 10) / 10;
@@ -294,16 +327,198 @@ addBtn.addEventListener('click', () => {
   devices.push({ name: "새 기기", budget: 0, months: 12 });
   renderRows();
   calculate();
-  saveState();
+  onDataChanged();
+});
+fundEl.addEventListener('input', () => { calculate(); onDataChanged(); });
+
+/* ===== 변경 발생 시: 로컬 저장 + (로그인 상태면) 디바운스 후 시트 저장 ===== */
+function onDataChanged() {
+  if (isApplyingRemote) return;
+  saveLocal();
+  if (accessToken) {
+    setSyncStatus('syncing', '저장 중…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveToSheet, 800);
+  }
+}
+
+function setSyncStatus(state, text) {
+  syncDot.className = 'dot' + (state ? ' ' + state : '');
+  syncText.textContent = text;
+}
+
+/* ===== Google 인증 ===== */
+function initGoogle() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) {
+        setSyncStatus('error', '연결 실패: ' + resp.error);
+        return;
+      }
+      accessToken = resp.access_token;
+      authBtn.textContent = '연결됨';
+      authBtn.disabled = true;
+      setSyncStatus('syncing', '내 시트 확인 중…');
+      await connectSheet();
+    }
+  });
+  authBtn.disabled = false;
+}
+
+authBtn.addEventListener('click', () => {
+  if (!tokenClient) return;
+  tokenClient.requestAccessToken();
 });
 
-fundEl.addEventListener('input', () => {
-  calculate();
-  saveState();
-});
+/* ===== 시트 연결: 기존 시트 있으면 불러오기, 없으면 새로 생성 ===== */
+async function connectSheet() {
+  try {
+    if (sheetId) {
+      const ok = await loadFromSheet(sheetId);
+      if (ok) {
+        setSyncStatus('synced', '동기화됨');
+        showSheetLink();
+        return;
+      }
+      // 저장된 ID가 더 이상 유효하지 않으면 새로 생성
+      sheetId = null;
+    }
+    await createSheet();
+    await saveToSheet();
+    setSyncStatus('synced', '동기화됨 (새 시트 생성)');
+    showSheetLink();
+  } catch (err) {
+    console.error(err);
+    setSyncStatus('error', '연결 중 오류 발생 (이 브라우저 저장은 계속 유지됩니다)');
+  }
+}
 
+function showSheetLink() {
+  if (!sheetId) return;
+  sheetLink.href = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+  sheetLink.style.display = 'inline';
+}
+
+async function gfetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API 오류 ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+async function createSheet() {
+  const data = await gfetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      properties: { title: SHEET_NAME },
+      sheets: [{ properties: { title: 'data' } }]
+    })
+  });
+  sheetId = data.spreadsheetId;
+  localStorage.setItem(SHEET_ID_KEY, sheetId);
+  // 헤더 작성
+  await gfetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:D1?valueInputOption=RAW`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [['type', 'name', 'budget', 'months']] })
+    }
+  );
+}
+
+/* 시트 레이아웃:
+   row1: 헤더
+   row2: fund 행 -> type=fund, name=(미사용), budget=적립금값, months=(미사용)
+   row3~: 기기 행 -> type=device, name, budget, months
+*/
+async function saveToSheet() {
+  if (!accessToken || !sheetId) return;
+  setSyncStatus('syncing', '저장 중…');
+  const fund = +fundEl.value || 0;
+  const rows = [
+    ['type', 'name', 'budget', 'months'],
+    ['fund', '', fund, ''],
+    ...devices.map(d => ['device', d.name, d.budget, d.months])
+  ];
+  try {
+    // 기존 내용 지우고 새로 씀 (행 개수가 줄어드는 경우 대비)
+    await gfetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:D1000:clear`,
+      { method: 'POST' }
+    );
+    await gfetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: rows })
+      }
+    );
+    setSyncStatus('synced', '동기화됨');
+  } catch (err) {
+    console.error(err);
+    setSyncStatus('error', '저장 실패 (이 브라우저에는 저장됨)');
+  }
+}
+
+async function loadFromSheet(id) {
+  try {
+    const data = await gfetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/data!A1:D1000`
+    );
+    const rows = data.values || [];
+    if (rows.length <= 1) return true; // 헤더만 있는 빈 시트도 유효
+
+    isApplyingRemote = true;
+    let fund = +fundEl.value || 0;
+    const loadedDevices = [];
+    for (let i = 1; i < rows.length; i++) {
+      const [type, name, budget, months] = rows[i];
+      if (type === 'fund') fund = +budget || 0;
+      if (type === 'device') loadedDevices.push({ name: name || '', budget: +budget || 0, months: Math.max(1, +months || 1) });
+    }
+    fundEl.value = fund;
+    devices = loadedDevices.length ? loadedDevices : devices;
+    renderRows();
+    calculate();
+    saveLocal();
+    isApplyingRemote = false;
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}
+
+/* ===== 초기 렌더 ===== */
 renderRows();
 calculate();
+
+window.addEventListener('load', () => {
+  if (window.google && google.accounts) {
+    initGoogle();
+  } else {
+    // GIS 스크립트 로드 대기
+    const check = setInterval(() => {
+      if (window.google && google.accounts) {
+        clearInterval(check);
+        initGoogle();
+      }
+    }, 200);
+  }
+});
 </script>
 </body>
 </html>
