@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT기기 적립금 계산기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f7f6f3;
+    --bg-info: #e6f1fb;
+    --text-primary: #18181a;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --text-info: #0c447c;
+    --border-tertiary: rgba(0,0,0,0.1);
+    --border-secondary: rgba(0,0,0,0.18);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #2a2a2a;
+      --bg-info: #0c447c;
+      --text-primary: #f2f2f0;
+      --text-secondary: #b4b2a9;
+      --text-tertiary: #888780;
+      --text-info: #b5d4f4;
+      --border-tertiary: rgba(255,255,255,0.12);
+      --border-secondary: rgba(255,255,255,0.2);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 24px 16px 64px;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border-tertiary);
+    padding: 1.5rem 1.5rem 2rem;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 1.5rem;
+  }
+  input, button {
+    font-family: inherit;
+    font-size: 14px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border-secondary);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    height: 36px;
+  }
+  input:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--bg-info);
+  }
+  button {
+    cursor: pointer;
+    background: var(--bg-primary);
+  }
+  button:hover { background: var(--bg-secondary); }
+  button:active { transform: scale(0.98); }
+  .top-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 1.5rem;
+    flex-wrap: wrap;
+  }
+  .top-row label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  #fund { width: 120px; }
+  #addBtn { margin-left: auto; }
+  #rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row input[data-f="name"] { flex: 1.6; min-width: 0; }
+  .row input[data-f="budget"], .row input[data-f="months"] { flex: 1; min-width: 0; }
+  .unit { font-size: 12px; color: var(--text-tertiary); width: 34px; flex-shrink: 0; }
+  .delBtn { width: 36px; padding: 0; flex-shrink: 0; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+  }
+  .stat-card.info { background: var(--bg-info); }
+  .stat-label { font-size: 13px; color: var(--text-secondary); margin: 0 0 4px; }
+  .stat-card.info .stat-label { color: var(--text-info); }
+  .stat-value { font-size: 24px; font-weight: 500; margin: 0; }
+  .stat-card.info .stat-value { color: var(--text-info); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th, td { padding: 6px 4px; }
+  th {
+    text-align: right;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 0.5px solid var(--border-tertiary);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { border-bottom: 0.5px solid var(--border-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .muted { color: var(--text-secondary); }
+  .highlight { font-weight: 500; color: var(--text-info); }
+  .note { font-size: 12px; color: var(--text-tertiary); margin: 1.5rem 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>IT기기 적립금 계산기</h1>
+
+  <div class="top-row">
+    <label for="fund">현재 적립금(만원)</label>
+    <input type="number" id="fund" value="100" min="0" step="1" />
+    <button id="addBtn"><i class="ti ti-plus" aria-hidden="true" style="font-size:16px; vertical-align:-2px; margin-right:4px;"></i>기기 추가</button>
+  </div>
+
+  <div id="rows"></div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <p class="stat-label">전체 예산 총액</p>
+      <p class="stat-value" id="totalBudget">0만원</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">적립금 적용 후 부족분</p>
+      <p class="stat-value" id="totalShort">0만원</p>
+    </div>
+    <div class="stat-card info">
+      <p class="stat-label">월 저축액 합계</p>
+      <p class="stat-value" id="totalMonthly">0만원</p>
+    </div>
+  </div>
+
+  <table>
+    <colgroup>
+      <col style="width:26%"><col style="width:14%"><col style="width:14%"><col style="width:16%"><col style="width:15%"><col style="width:15%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>기기</th>
+        <th>예산</th>
+        <th>남은개월</th>
+        <th>적립금 배정</th>
+        <th>부족분</th>
+        <th>월 저축액</th>
+      </tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+
+  <p class="note">만기(남은 개월)가 빠른 기기부터 적립금을 우선 배정합니다. 입력값은 이 브라우저에 자동 저장됩니다.</p>
+</div>
+
+<script>
+const STORAGE_KEY = 'it-savings-calculator-v1';
+
+const defaultDevices = [
+  { name: "휴대폰", budget: 240, months: 24 },
+  { name: "갤럭시 북 울트라", budget: 350, months: 33 },
+  { name: "맥북 에어", budget: 180, months: 16 },
+  { name: "무선이어폰(버즈)", budget: 25, months: 17 },
+  { name: "갤럭시 워치", budget: 45, months: 22 },
+  { name: "갤럭시 탭", budget: 90, months: 14 }
+];
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.devices)) return parsed;
+    }
+  } catch (e) {}
+  return { fund: 100, devices: defaultDevices };
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ fund: +fundEl.value || 0, devices }));
+  } catch (e) {}
+}
+
+const state = loadState();
+let devices = state.devices;
+
+const rowsEl = document.getElementById('rows');
+const fundEl = document.getElementById('fund');
+const addBtn = document.getElementById('addBtn');
+fundEl.value = state.fund;
+
+function renderRows() {
+  rowsEl.innerHTML = '';
+  devices.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(d.name)}" data-i="${i}" data-f="name" />
+      <input type="number" value="${d.budget}" min="0" step="1" data-i="${i}" data-f="budget" />
+      <span class="unit">만원</span>
+      <input type="number" value="${d.months}" min="1" step="1" data-i="${i}" data-f="months" />
+      <span class="unit">개월</span>
+      <button class="delBtn" data-del="${i}" aria-label="기기 삭제"><i class="ti ti-trash" aria-hidden="true" style="font-size:16px;"></i></button>
+    `;
+    rowsEl.appendChild(row);
+  });
+
+  rowsEl.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const i = +e.target.dataset.i;
+      const f = e.target.dataset.f;
+      devices[i][f] = f === 'name' ? e.target.value : (+e.target.value || 0);
+      calculate();
+      saveState();
+    });
+  });
+  rowsEl.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const i = +e.currentTarget.dataset.del;
+      devices.splice(i, 1);
+      renderRows();
+      calculate();
+      saveState();
+    });
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function calculate() {
+  const fund = Math.max(0, +fundEl.value || 0);
+  const sorted = devices.map((d, idx) => ({...d, idx})).sort((a, b) => a.months - b.months);
+
+  let remaining = fund;
+  const results = sorted.map(d => {
+    const allocated = Math.min(remaining, d.budget);
+    remaining = Math.round((remaining - allocated) * 10) / 10;
+    const shortfall = Math.round((d.budget - allocated) * 10) / 10;
+    const monthly = Math.round((shortfall / d.months) * 10) / 10;
+    return { ...d, allocated: Math.round(allocated * 10) / 10, shortfall, monthly };
+  });
+
+  results.sort((a, b) => a.idx - b.idx);
+
+  const totalBudget = Math.round(devices.reduce((s, d) => s + d.budget, 0) * 10) / 10;
+  const totalShort = Math.round(results.reduce((s, r) => s + r.shortfall, 0) * 10) / 10;
+  const totalMonthly = Math.round(results.reduce((s, r) => s + r.monthly, 0) * 10) / 10;
+
+  document.getElementById('totalBudget').textContent = totalBudget.toLocaleString() + '만원';
+  document.getElementById('totalShort').textContent = totalShort.toLocaleString() + '만원';
+  document.getElementById('totalMonthly').textContent = totalMonthly.toLocaleString() + '만원';
+
+  const body = document.getElementById('resultBody');
+  body.innerHTML = '';
+  results.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(r.name)}</td>
+      <td style="text-align:right;">${r.budget.toLocaleString()}</td>
+      <td style="text-align:right;">${r.months}</td>
+      <td style="text-align:right;" class="muted">${r.allocated.toLocaleString()}</td>
+      <td style="text-align:right;">${r.shortfall.toLocaleString()}</td>
+      <td style="text-align:right;" class="highlight">${r.monthly.toLocaleString()}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+addBtn.addEventListener('click', () => {
+  devices.push({ name: "새 기기", budget: 0, months: 12 });
+  renderRows();
+  calculate();
+  saveState();
+});
+
+fundEl.addEventListener('input', () => {
+  calculate();
+  saveState();
+});
+
+renderRows();
+calculate();
+</script>
+</body>
+</html>
