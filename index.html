@@ -108,10 +108,13 @@
   #fund { width: 120px; }
   #addBtn { margin-left: auto; }
   #rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
-  .row { display: flex; align-items: center; gap: 8px; }
-  .row input[data-f="name"] { flex: 1.6; min-width: 0; }
-  .row input[data-f="budget"], .row input[data-f="months"] { flex: 1; min-width: 0; }
-  .unit { font-size: 12px; color: var(--text-tertiary); width: 34px; flex-shrink: 0; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .row input[data-f="name"] { flex: 1.4; min-width: 90px; }
+  .row input[data-f="budget"] { flex: 0.7; min-width: 60px; }
+  .row input[data-f="cycle"] { flex: 0.7; min-width: 60px; }
+  .row input[data-f="lastDate"] { flex: 1; min-width: 130px; }
+  .unit { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; flex-shrink: 0; }
+  .auto-info { font-size: 12px; color: var(--text-info); white-space: nowrap; flex-shrink: 0; min-width: 150px; }
   .delBtn { width: 36px; padding: 0; flex-shrink: 0; }
   .stats {
     display: grid;
@@ -175,17 +178,17 @@
 
   <table>
     <colgroup>
-      <col style="width:26%"><col style="width:14%"><col style="width:14%"><col style="width:16%"><col style="width:15%"><col style="width:15%">
+      <col style="width:20%"><col style="width:11%"><col style="width:14%"><col style="width:11%"><col style="width:14%"><col style="width:13%"><col style="width:13%">
     </colgroup>
     <thead>
       <tr>
-        <th>기기</th><th>예산</th><th>남은개월</th><th>적립금 배정</th><th>부족분</th><th>월 저축액</th>
+        <th>기기</th><th>예산</th><th>다음 교체일</th><th>남은개월</th><th>적립금 배정</th><th>부족분</th><th>월 저축액</th>
       </tr>
     </thead>
     <tbody id="resultBody"></tbody>
   </table>
 
-  <p class="note">만기(남은 개월)가 빠른 기기부터 적립금을 우선 배정합니다. Google 계정 연결 시 자동으로 내 드라이브의 전용 시트에 저장되어 어느 기기에서든 같은 데이터를 볼 수 있습니다. 연결하지 않으면 이 브라우저에만 저장됩니다.</p>
+  <p class="note">교체주기와 마지막 교체일을 입력하면 다음 교체 예정일과 남은 개월을 오늘 날짜 기준으로 자동 계산합니다. 만기가 빠른 기기부터 적립금을 우선 배정합니다. Google 계정 연결 시 자동으로 내 드라이브의 전용 시트에 저장되어 어느 기기에서든 같은 데이터를 볼 수 있습니다. 연결하지 않으면 이 브라우저에만 저장됩니다.</p>
 </div>
 
 <script>
@@ -193,17 +196,38 @@
 const CLIENT_ID = '985691104006-k6lu0gfi5osnj3b4b6a3og3akruk9h8q.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const SHEET_NAME = '[IT기기 적립금 계산기 전용] 데이터';
-const LOCAL_KEY = 'it-savings-calculator-v1';
+const LOCAL_KEY = 'it-savings-calculator-v2';
 const SHEET_ID_KEY = 'it-savings-calculator-sheet-id';
 
 const defaultDevices = [
-  { name: "휴대폰", budget: 240, months: 24 },
-  { name: "갤럭시 북 울트라", budget: 350, months: 33 },
-  { name: "맥북 에어", budget: 180, months: 16 },
-  { name: "무선이어폰(버즈)", budget: 25, months: 17 },
-  { name: "갤럭시 워치", budget: 45, months: 22 },
-  { name: "갤럭시 탭", budget: 90, months: 14 }
+  { name: "휴대폰", budget: 240, cycle: 24, lastDate: "2026-06-21" },
+  { name: "갤럭시 북 울트라", budget: 350, cycle: 36, lastDate: "2025-03-01" },
+  { name: "맥북 에어", budget: 180, cycle: 48, lastDate: "2024-09-01" },
+  { name: "무선이어폰(버즈)", budget: 25, cycle: 24, lastDate: "2025-11-01" },
+  { name: "갤럭시 워치", budget: 45, cycle: 36, lastDate: "2025-05-01" },
+  { name: "갤럭시 탭", budget: 90, cycle: 36, lastDate: "2024-12-01" }
 ];
+
+/* 마지막 교체일 + 교체주기(개월) -> 다음 교체 예정일, 남은 개월수(오늘 기준, 최소 1) 계산 */
+function computeSchedule(d) {
+  const last = new Date(d.lastDate + 'T00:00:00');
+  if (isNaN(last.getTime())) return { nextDate: null, monthsLeft: 1 };
+  const next = new Date(last);
+  next.setMonth(next.getMonth() + (+d.cycle || 1));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
+  const monthsLeft = Math.max(1, Math.ceil(diffDays / 30));
+  return { nextDate: next, monthsLeft };
+}
+
+function formatDate(date) {
+  if (!date) return '-';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
 let devices = [];
 let accessToken = null;
@@ -252,14 +276,17 @@ function escapeHtml(str) {
 function renderRows() {
   rowsEl.innerHTML = '';
   devices.forEach((d, i) => {
+    const { nextDate, monthsLeft } = computeSchedule(d);
     const row = document.createElement('div');
     row.className = 'row';
     row.innerHTML = `
       <input type="text" value="${escapeHtml(d.name)}" data-i="${i}" data-f="name" />
       <input type="number" value="${d.budget}" min="0" step="1" data-i="${i}" data-f="budget" />
       <span class="unit">만원</span>
-      <input type="number" value="${d.months}" min="1" step="1" data-i="${i}" data-f="months" />
-      <span class="unit">개월</span>
+      <input type="number" value="${d.cycle}" min="1" step="1" data-i="${i}" data-f="cycle" />
+      <span class="unit">개월주기</span>
+      <input type="date" value="${d.lastDate}" data-i="${i}" data-f="lastDate" />
+      <span class="auto-info" title="다음 교체 예정일 / 남은 개월 (자동 계산)">${formatDate(nextDate)} · ${monthsLeft}개월 남음</span>
       <button class="delBtn" data-del="${i}" aria-label="기기 삭제"><i class="ti ti-trash" aria-hidden="true" style="font-size:16px;"></i></button>
     `;
     rowsEl.appendChild(row);
@@ -269,7 +296,8 @@ function renderRows() {
     inp.addEventListener('input', e => {
       const i = +e.target.dataset.i;
       const f = e.target.dataset.f;
-      devices[i][f] = f === 'name' ? e.target.value : (+e.target.value || 0);
+      devices[i][f] = (f === 'name' || f === 'lastDate') ? e.target.value : (+e.target.value || 0);
+      updateAutoInfo(i);
       calculate();
       onDataChanged();
     });
@@ -285,16 +313,28 @@ function renderRows() {
   });
 }
 
+function updateAutoInfo(i) {
+  const row = rowsEl.children[i];
+  if (!row) return;
+  const span = row.querySelector('.auto-info');
+  const { nextDate, monthsLeft } = computeSchedule(devices[i]);
+  span.textContent = `${formatDate(nextDate)} · ${monthsLeft}개월 남음`;
+}
+
 function calculate() {
   const fund = Math.max(0, +fundEl.value || 0);
-  const sorted = devices.map((d, idx) => ({...d, idx})).sort((a, b) => a.months - b.months);
+  const withSchedule = devices.map((d, idx) => {
+    const { nextDate, monthsLeft } = computeSchedule(d);
+    return { ...d, idx, nextDate, monthsLeft };
+  });
+  const sorted = [...withSchedule].sort((a, b) => a.monthsLeft - b.monthsLeft);
 
   let remaining = fund;
   const results = sorted.map(d => {
     const allocated = Math.min(remaining, d.budget);
     remaining = Math.round((remaining - allocated) * 10) / 10;
     const shortfall = Math.round((d.budget - allocated) * 10) / 10;
-    const monthly = Math.round((shortfall / d.months) * 10) / 10;
+    const monthly = Math.round((shortfall / d.monthsLeft) * 10) / 10;
     return { ...d, allocated: Math.round(allocated * 10) / 10, shortfall, monthly };
   });
   results.sort((a, b) => a.idx - b.idx);
@@ -314,7 +354,8 @@ function calculate() {
     tr.innerHTML = `
       <td>${escapeHtml(r.name)}</td>
       <td style="text-align:right;">${r.budget.toLocaleString()}</td>
-      <td style="text-align:right;">${r.months}</td>
+      <td style="text-align:right;">${formatDate(r.nextDate)}</td>
+      <td style="text-align:right;">${r.monthsLeft}</td>
       <td style="text-align:right;" class="muted">${r.allocated.toLocaleString()}</td>
       <td style="text-align:right;">${r.shortfall.toLocaleString()}</td>
       <td style="text-align:right;" class="highlight">${r.monthly.toLocaleString()}</td>
@@ -324,7 +365,8 @@ function calculate() {
 }
 
 addBtn.addEventListener('click', () => {
-  devices.push({ name: "새 기기", budget: 0, months: 12 });
+  const todayStr = new Date().toISOString().slice(0, 10);
+  devices.push({ name: "새 기기", budget: 0, cycle: 12, lastDate: todayStr });
   renderRows();
   calculate();
   onDataChanged();
@@ -429,33 +471,33 @@ async function createSheet() {
   localStorage.setItem(SHEET_ID_KEY, sheetId);
   // 헤더 작성
   await gfetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:D1?valueInputOption=RAW`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:E1?valueInputOption=RAW`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [['type', 'name', 'budget', 'months']] })
+      body: JSON.stringify({ values: [['type', 'name', 'budget', 'cycle', 'lastDate']] })
     }
   );
 }
 
 /* 시트 레이아웃:
    row1: 헤더
-   row2: fund 행 -> type=fund, name=(미사용), budget=적립금값, months=(미사용)
-   row3~: 기기 행 -> type=device, name, budget, months
+   row2: fund 행 -> type=fund, name=(미사용), budget=적립금값, cycle=(미사용), lastDate=(미사용)
+   row3~: 기기 행 -> type=device, name, budget, cycle(개월), lastDate(YYYY-MM-DD)
 */
 async function saveToSheet() {
   if (!accessToken || !sheetId) return;
   setSyncStatus('syncing', '저장 중…');
   const fund = +fundEl.value || 0;
   const rows = [
-    ['type', 'name', 'budget', 'months'],
-    ['fund', '', fund, ''],
-    ...devices.map(d => ['device', d.name, d.budget, d.months])
+    ['type', 'name', 'budget', 'cycle', 'lastDate'],
+    ['fund', '', fund, '', ''],
+    ...devices.map(d => ['device', d.name, d.budget, d.cycle, d.lastDate])
   ];
   try {
     // 기존 내용 지우고 새로 씀 (행 개수가 줄어드는 경우 대비)
     await gfetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:D1000:clear`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/data!A1:E1000:clear`,
       { method: 'POST' }
     );
     await gfetch(
@@ -476,18 +518,32 @@ async function saveToSheet() {
 async function loadFromSheet(id) {
   try {
     const data = await gfetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/data!A1:D1000`
+      `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/data!A1:E1000`
     );
     const rows = data.values || [];
     if (rows.length <= 1) return true; // 헤더만 있는 빈 시트도 유효
+
+    const header = rows[0] || [];
+    const isOldFormat = header.includes('months') && !header.includes('cycle');
+    if (isOldFormat) {
+      // 구버전 구조(남은개월 직접입력) 시트 - 새 구조로 다시 씀
+      return false;
+    }
 
     isApplyingRemote = true;
     let fund = +fundEl.value || 0;
     const loadedDevices = [];
     for (let i = 1; i < rows.length; i++) {
-      const [type, name, budget, months] = rows[i];
+      const [type, name, budget, cycle, lastDate] = rows[i];
       if (type === 'fund') fund = +budget || 0;
-      if (type === 'device') loadedDevices.push({ name: name || '', budget: +budget || 0, months: Math.max(1, +months || 1) });
+      if (type === 'device') {
+        loadedDevices.push({
+          name: name || '',
+          budget: +budget || 0,
+          cycle: Math.max(1, +cycle || 12),
+          lastDate: lastDate || new Date().toISOString().slice(0, 10)
+        });
+      }
     }
     fundEl.value = fund;
     devices = loadedDevices.length ? loadedDevices : devices;
